@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <title>Personalausweis Prüfziffer-Demo – fehlerbereinigte Version</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; line-height: 1.45; padding: 16px; max-width: 900px; margin: 0 auto; }
+    fieldset { border: 1px solid #d0d7de; border-radius: 8px; padding: 12px 16px; margin: 12px 0 18px; }
+    legend { font-weight: 700; padding: 0 6px; }
+    .row { display: flex; align-items: center; gap: 8px; margin: 6px 0; flex-wrap: wrap; }
+    label { min-width: 230px; }
+    input.inp { font-family: "Courier New", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; padding: 6px 8px; }
+    input.bol { font-weight: 700; width: 250px; padding: 8px 12px; }
+    .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+    button, input[type="button"] { cursor: pointer; }
+    .note { background: #fff8c5; border: 1px solid #e2c200; padding: 8px 12px; border-radius: 6px; }
+    .small { color: #57606a; font-size: 0.92rem; }
+  </style>
+  <script>
+    "use strict";
+
+    // --- Utilities ---
+    function toDigit(ch) {
+      const n = ch.charCodeAt(0) - 48; // '0' => 48
+      if (n < 0 || n > 9) throw new Error("Unerwartetes Zeichen (keine Ziffer): " + ch);
+      return n;
+    }
+
+    function checksum(inp) {
+      // 7-3-1 weighting (numeric only, as used here)
+      const weights = [7, 3, 1];
+      let cs = 0;
+      for (let i = 0; i < inp.length; i++) {
+        const d = toDigit(inp[i]);
+        cs += d * weights[i % 3];
+      }
+      return cs % 10;
+    }
+
+    function TwoDig(n) {
+      n = Number(n) | 0;
+      return (n < 10 ? "0" : "") + n;
+    }
+
+    function rand(contr, count) {
+      let s = "";
+      for (let i = 0; i < count; i++) s += Math.floor(Math.random() * 10);
+      contr.value = s;
+    }
+
+    function isLeapYear(year) {
+      return (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
+    }
+
+    function daysInMonth(year, month /* 1..12 */) {
+      const dim = [31, (isLeapYear(year) ? 29 : 28), 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+      return dim[month - 1];
+    }
+
+    function getRandomDOM(year, month /* 1..12 */) {
+      return Math.floor(Math.random() * daysInMonth(year, month)) + 1;
+    }
+
+    function RandDOB(contr) {
+      const now = new Date();
+      const ageStr = prompt("Gebe dein Alter ein:", "18");
+      if (ageStr == null) return;
+      const age = parseInt(ageStr, 10);
+      if (!Number.isFinite(age) || age < 0 || age > 120) {
+        alert("Ungültiges Alter.");
+        return;
+      }
+      const target = new Date(now.getFullYear() - age, now.getMonth(), now.getDate());
+      const m = Math.floor(Math.random() * 12) + 1;
+      const d = getRandomDOM(target.getFullYear(), m);
+      const candidate = new Date(target.getFullYear(), m - 1, d);
+      let y = target.getFullYear();
+      if (candidate > target) y -= 1;
+      y = y % 100;
+      contr.value = TwoDig(y) + TwoDig(m) + TwoDig(d);
+    }
+
+    function RandDOE(contr) {
+      const now = new Date();
+      const yearsStr = prompt("Gültigkeitsdauer in Jahren (z. B. 10):", "10");
+      if (yearsStr == null) return;
+      const validity = parseInt(yearsStr, 10);
+      if (!Number.isFinite(validity) || validity < 0 || validity > 30) {
+        alert("Ungültige Gültigkeitsdauer.");
+        return;
+      }
+      const target = new Date(now.getFullYear() + validity, now.getMonth(), now.getDate());
+      const m = Math.floor(Math.random() * 12) + 1;
+      const d = getRandomDOM(target.getFullYear(), m);
+      const candidate = new Date(target.getFullYear(), m - 1, d);
+      let y = target.getFullYear();
+      if (candidate < target) y += 1;
+      y = y % 100;
+      contr.value = TwoDig(y) + TwoDig(m) + TwoDig(d);
+    }
+
+    // --- Form logic ---
+    function check() {
+      const f = document.forms.pa;
+      const xp1 = f.p1.value.trim();
+      const xp2 = f.p2.value.trim();
+      const xp3 = f.p3.value.trim();
+      const xp4 = f.p4.value.trim();
+      const xp5 = f.p5.value.trim();
+
+      f.ewk.value = xp1.substring(0, 4);
+      f.lfd.value = xp1.substring(4, 9);
+      f.nat.value = xp2;
+      f.geb.value = xp3.substring(0, 6);
+      f.abl.value = xp4.substring(0, 6);
+
+      const okLengths = (xp1.length === 10 && xp2.length === 1 && xp3.length === 7 && xp4.length === 7 && xp5.length === 1);
+      if (!okLengths) {
+        alert("Es ist ein Fehler aufgetreten!\nErwartete Längen: p1=10, p2=1, p3=7, p4=7, p5=1");
+        return;
+      }
+
+      try {
+        const xc1 = checksum(xp1.substring(0, 9));
+        const xc3 = checksum(xp3.substring(0, 6));
+        const xc4 = checksum(xp4.substring(0, 6));
+        const xca = checksum(xp1 + xp3 + xp4);
+
+        const c1 = Number(xp1[9]);
+        const c3 = Number(xp3[6]);
+        const c4 = Number(xp4[6]);
+        const ca = Number(xp5);
+
+        if (xc1 === c1 && xc3 === c3 && xc4 === c4 && xca === ca) {
+          alert("Dieser Personalausweis ist gueltig!");
+        } else {
+          alert("Dieser Personalausweis ist ungueltig!");
+        }
+      } catch (e) {
+        alert("Ungültige Eingabe (nur Ziffern erlaubt).\n" + e.message);
+      }
+    }
+
+    function generate() {
+      const f = document.forms.pa;
+      const ewk = f.ewk.value.trim();
+      const lfd = f.lfd.value.trim();
+      const nat = f.nat.value.trim();
+      const geb = f.geb.value.trim();
+      const abl = f.abl.value.trim();
+
+      const ok = (ewk.length === 4 && lfd.length === 5 && nat.length === 1 && geb.length === 6 && abl.length === 6);
+      if (!ok) {
+        alert("Es ist ein Fehler aufgetreten!\nErwartete Längen: ewk=4, lfd=5, nat=1, geb=6, abl=6");
+        return;
+      }
+
+      try {
+        const xp1 = ewk + lfd + String(checksum(ewk + lfd));
+        const xp2 = nat;
+        const xp3 = geb + String(checksum(geb));
+        const xp4 = abl + String(checksum(abl));
+        const xp5 = String(checksum(xp1 + xp3 + xp4));
+
+        f.p1.value = xp1;
+        f.p2.value = xp2;
+        f.p3.value = xp3;
+        f.p4.value = xp4;
+        f.p5.value = xp5;
+      } catch (e) {
+        alert("Ungültige Eingabe (nur Ziffern erlaubt).\n" + e.message);
+      }
+    }
+
+    function clearChk() {
+      const f = document.forms.pa;
+      f.p1.value = "";
+      f.p2.value = "D";
+      f.p3.value = "";
+      f.p4.value = "";
+      f.p5.value = "";
+    }
+
+    function clearGen() {
+      const f = document.forms.pa;
+      f.ewk.value = "";
+      f.lfd.value = "";
+      f.nat.value = "D";
+      f.geb.value = "";
+      f.abl.value = "";
+    }
+  </script>
+</head>
+<body>
+  <h1>Personalausweis Prüfziffer‑Demo</h1>
+  <p class="note">
+    Dieses Projekt dient ausschließlich zu Lern- und Demonstrationszwecken (Checksum-Berechnung).
+    Es erzeugt fiktive Ziffernfolgen ohne amtliche Relevanz.
+  </p>
+
+  <form name="pa" onsubmit="return false;">
+    <fieldset>
+      <legend>Komplette Nummer prüfen</legend>
+      <div class="row">
+        <label for="p1">Teil 1 (10)</label>
+        <input type="text" class="inp" size="10" maxlength="10" name="p1" id="p1" />
+      </div>
+      <div class="row">
+        <label for="p2">Nationalität (1)</label>
+        <input type="text" class="inp" size="1" maxlength="1" name="p2" id="p2" value="D" />
+      </div>
+      <div class="row">
+        <label for="p3">Geburtsdatum (7)</label>
+        <input type="text" class="inp" size="7" maxlength="7" name="p3" id="p3" />
+      </div>
+      <div class="row">
+        <label for="p4">Ablaufdatum (7)</label>
+        <input type="text" class="inp" size="7" maxlength="7" name="p4" id="p4" />
+      </div>
+      <div class="row">
+        <label for="p5">Gesamt‑Prüfziffer (1)</label>
+        <input type="text" class="inp" size="1" maxlength="1" name="p5" id="p5" />
+      </div>
+      <div class="actions">
+        <input type="button" class="bol" value="Prüfen" onclick="check();" />
+        <input type="button" value="Clear" onclick="clearChk();" />
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Aus Einzelwerten generieren</legend>
+      <div class="row">
+        <label for="ewk">Wohnsitz‑Kennzahl (4)</label>
+        <input type="text" class="inp" size="4" maxlength="4" name="ewk" id="ewk" />
+        <input type="button" value="Zufall" onclick="rand(document.pa.ewk,4);" />
+      </div>
+      <div class="row">
+        <label for="lfd">Laufende Zahl (5)</label>
+        <input type="text" class="inp" size="5" maxlength="5" name="lfd" id="lfd" />
+        <input type="button" value="Zufall" onclick="rand(document.pa.lfd,5);" />
+      </div>
+      <div class="row">
+        <label for="nat">Nationalität (1)</label>
+        <input type="text" class="inp" size="1" maxlength="1" name="nat" id="nat" value="D" />
+      </div>
+      <div class="row">
+        <label for="geb">Geburtsdatum YYMMDD (6)</label>
+        <input type="text" class="inp" size="6" maxlength="6" name="geb" id="geb" />
+        <input type="button" value="Auswahl" onclick="RandDOB(document.pa.geb);" />
+      </div>
+      <div class="row">
+        <label for="abl">Ablaufdatum YYMMDD (6)</label>
+        <input type="text" class="inp" size="6" maxlength="6" name="abl" id="abl" />
+        <input type="button" value="Auswahl" onclick="RandDOE(document.pa.abl);" />
+      </div>
+      <div class="actions">
+        <input type="button" class="bol" value="Generieren" onclick="generate();" />
+        <input type="button" value="Clear" onclick="clearGen();" />
+      </div>
+    </fieldset>
+  </form>
+
+  <p class="small">
+    Quelle (Original, fehlerhaft): http://jaaan.bplaced.net/Privat/Personalausweisgenerator_v1.2.html
+  </p>
+</body>
+</html>
